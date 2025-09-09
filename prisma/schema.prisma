@@ -1,0 +1,66 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  username        String    @unique
+  email           String    @unique
+  password        String
+  profileImageUrl String?
+  createdAt       DateTime  @default(now())
+
+  reviews         Review[]
+
+  // --- NEW RELATIONSHIPS FOR FOLLOWS ---
+  // A list of users that this user is following
+  following       Follows[] @relation("Following")
+  // A list of users that are following this user
+  followers       Follows[] @relation("Followers")
+}
+
+model StudySpot {
+  id          String   @id @default(cuid())
+  name        String
+  address     String
+  latitude    Float
+  longitude   Float
+  type        String
+  createdAt   DateTime @default(now())
+
+  reviews     Review[]
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  content   String
+  rating    Int
+  imageUrl  String?
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  spotId    String
+  spot      StudySpot @relation(fields: [spotId], references: [id])
+}
+
+// --- NEW MODEL FOR THE FOLLOWS TABLE ---
+model Follows {
+  followerId  String
+  followingId String
+
+  // Define the relations back to the User model
+  follower    User @relation("Following", fields: [followerId], references: [id])
+  following   User @relation("Followers", fields: [followingId], references: [id])
+
+  // Define a composite primary key to ensure a user can't follow another user more than once
+  @@id([followerId, followingId])
+}
