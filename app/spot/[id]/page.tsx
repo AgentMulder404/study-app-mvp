@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/app/auth'; // <-- THE CORRECTED IMPORT PATH
 import CreateReviewForm from '@/app/components/CreateReviewForm';
 import Link from 'next/link';
 
@@ -68,7 +68,6 @@ export default async function SpotDetailPage({ params }: { params: { id: string 
                       {review.user.username.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      {/* This is the new link to the profile page */}
                       <Link href={`/profile/${review.user.username}`} className="font-semibold text-gray-800 hover:underline">
                         {review.user.username}
                       </Link>
@@ -93,3 +92,4 @@ export default async function SpotDetailPage({ params }: { params: { id: string 
     </div>
   );
 }
+

@@ -1,73 +1,65 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 interface FollowButtonProps {
   targetUserId: string;
-  initialIsFollowing: boolean;
+  isFollowingInitial: boolean; // <-- THE MISSING PROPERTY
 }
 
-export default function FollowButton({ targetUserId, initialIsFollowing }: FollowButtonProps) {
+export default function FollowButton({ targetUserId, isFollowingInitial }: FollowButtonProps) {
   const router = useRouter();
-  const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(isFollowingInitial);
+  const [isPending, setIsPending] = useState(false);
 
-  const handleFollow = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/follow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userIdToFollow: targetUserId }),
-      });
-      if (res.ok) {
-        setIsFollowing(true);
-        router.refresh(); // Refresh the page to update follower counts
-      }
-    } catch (error) {
-      console.error('Failed to follow user', error);
+  const follow = async () => {
+    setIsPending(true);
+    const res = await fetch('/api/follow', {
+      method: 'POST',
+      body: JSON.stringify({ targetUserId }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (res.ok) {
+      setIsFollowing(true);
+      router.refresh(); // Refresh the page to update follower counts
     }
-    setIsLoading(false);
+    setIsPending(false);
   };
 
-  const handleUnfollow = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/follow', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userIdToUnfollow: targetUserId }),
-      });
-      if (res.ok) {
-        setIsFollowing(false);
-        router.refresh(); // Refresh the page to update follower counts
-      }
-    } catch (error) {
-      console.error('Failed to unfollow user', error);
+  const unfollow = async () => {
+    setIsPending(true);
+    const res = await fetch('/api/follow', {
+      method: 'DELETE',
+      body: JSON.stringify({ targetUserId }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (res.ok) {
+      setIsFollowing(false);
+      router.refresh(); // Refresh the page to update follower counts
     }
-    setIsLoading(false);
+    setIsPending(false);
   };
 
   if (isFollowing) {
     return (
       <button
-        onClick={handleUnfollow}
-        disabled={isLoading}
-        className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50"
+        onClick={unfollow}
+        disabled={isPending}
+        className="px-5 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:bg-gray-100"
       >
-        {isLoading ? '...' : 'Unfollow'}
+        {isPending ? '...' : 'Unfollow'}
       </button>
     );
   }
 
   return (
     <button
-      onClick={handleFollow}
-      disabled={isLoading}
-      className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+      onClick={follow}
+      disabled={isPending}
+      className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-300"
     >
-      {isLoading ? '...' : 'Follow'}
+      {isPending ? '...' : 'Follow'}
     </button>
   );
 }
