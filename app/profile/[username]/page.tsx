@@ -1,11 +1,18 @@
 import { PrismaClient } from '@prisma/client';
 import Link from 'next/link';
-import { auth } from '@/app/auth'; // <-- UPDATED IMPORT PATH
+import { auth } from '@/app/auth';
 import FollowButton from '@/app/components/FollowButton';
 
 const prisma = new PrismaClient();
 
-async function getProfileData(username: string, currentUserId?: string) {
+// Define a clear type for the component's props
+interface ProfilePageProps {
+  params: {
+    username: string;
+  };
+}
+
+async function getProfileData(username: string) {
   const user = await prisma.user.findUnique({
     where: { username },
     include: {
@@ -13,16 +20,34 @@ async function getProfileData(username: string, currentUserId?: string) {
         orderBy: { createdAt: 'desc' },
         include: { spot: true },
       },
-      // Count how many people this user is following
-      following: true,
-      // Count how many people are following this user
-      followers: true,
+      // Also fetch the counts for followers and following
+      _count: {
+        select: {
+          followers: true,
+          following: true,
+        },
+      },
     },
   });
+  return user;
+}
 
-  if (!user) return null;
+export default async function ProfilePage({ params }: ProfilePageProps) {
+  const username = decodeURIComponent(params.username);
 
-  // Check if the currently logged-in user is already following this profile's user
+  // Fetch both the profile user and the currently logged-in user in parallel
+  const [user, session] = await Promise.all([
+    getProfileData(username),
+    auth(),
+  ]);
+
+  if (!user) {
+    return <div className="text-center p-8">User not found</div>;
+  }
+
+  const currentUserId = session?.user?.id;
+  
+  // Determine if the current user is already following this profile's user
   const isFollowing = currentUserId
     ? !!(await prisma.follows.findUnique({
         where: {
@@ -34,48 +59,35 @@ async function getProfileData(username: string, currentUserId?: string) {
       }))
     : false;
 
-  return { ...user, isFollowing };
-}
-
-export default async function ProfilePage({ params }: { params: { username: string } }) {
-  const session = await auth();
-  const currentUserId = session?.user?.id;
-  const username = decodeURIComponent(params.username);
-  const user = await getProfileData(username, currentUserId);
-
-  if (!user) {
-    return <div className="text-center p-8">User not found</div>;
-  }
-  
-  const isOwnProfile = currentUserId === user.id;
-
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="max-w-4xl mx-auto py-12 px-4">
+        {/* User Info Header */}
         <div className="bg-white p-8 rounded-2xl shadow-lg mb-8">
-          <div className="flex flex-col sm:flex-row items-center">
-            <div className="w-24 h-24 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-5xl mr-0 sm:mr-6 mb-4 sm:mb-0 flex-shrink-0">
-              {user.username.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-grow text-center sm:text-left">
-              <h1 className="text-3xl font-extrabold text-gray-900">{user.username}</h1>
-              <div className="flex justify-center sm:justify-start space-x-4 mt-2 text-gray-600">
-                <span><span className="font-bold">{user.reviews.length}</span> Reviews</span>
-                <span><span className="font-bold">{user.followers.length}</span> Followers</span>
-                <span><span className="font-bold">{user.following.length}</span> Following</span>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center">
+              <div className="w-20 h-20 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-4xl mr-6">
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h1 className="text-3xl font-extrabold text-gray-900">{user.username}</h1>
+                <div className="flex space-x-4 text-gray-500 mt-2">
+                  <span><span className="font-bold">{user._count.followers}</span> followers</span>
+                  <span><span className="font-bold">{user._count.following}</span> following</span>
+                </div>
               </div>
             </div>
-            {!isOwnProfile && currentUserId && (
-              <div className="mt-4 sm:mt-0">
-                <FollowButton
-                  targetUserId={user.id}
-                  isFollowingInitial={user.isFollowing}
-                />
-              </div>
+            {/* Show follow button if logged in and not viewing your own profile */}
+            {currentUserId && currentUserId !== user.id && (
+              <FollowButton
+                targetUserId={user.id}
+                isFollowingInitial={isFollowing}
+              />
             )}
           </div>
         </div>
 
+        {/* User's Reviews List */}
         <div className="bg-white p-8 rounded-2xl shadow-lg">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">
             All Reviews by {user.username}
