@@ -1,4 +1,5 @@
-// prisma/schema.prisma
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -17,25 +18,36 @@ model User {
   profileImageUrl String?
   createdAt       DateTime  @default(now())
 
+  // --- NEW FIELD to identify business accounts ---
+  isBusiness      Boolean   @default(false)
+
+  // RELATION: A User can write many Reviews
   reviews         Review[]
 
-  // --- NEW RELATIONSHIPS FOR FOLLOWS ---
-  // A list of users that this user is following
-  following       Follows[] @relation("Following")
-  // A list of users that are following this user
-  followers       Follows[] @relation("Followers")
+  // --- NEW RELATION for owned spots ---
+  ownedSpots      StudySpot[]
+
+  // RELATIONS: Follow system
+  followers       Follows[] @relation("following")
+  following       Follows[] @relation("follower")
 }
 
 model StudySpot {
-  id          String   @id @default(cuid())
-  name        String
-  address     String
-  latitude    Float
-  longitude   Float
-  type        String
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  latitude  Float
+  longitude Float
+  type      String
+  createdAt DateTime @default(now())
 
-  reviews     Review[]
+  // --- NEW RELATION to link a spot to a business owner ---
+  // The '?' makes it optional, as some spots are admin-created
+  ownerId   String?
+  owner     User?    @relation(fields: [ownerId], references: [id])
+
+  // RELATION: A StudySpot can have many Reviews
+  reviews   Review[]
 }
 
 model Review {
@@ -45,22 +57,21 @@ model Review {
   imageUrl  String?
   createdAt DateTime @default(now())
 
+  // RELATION: This Review belongs to one User
   userId    String
   user      User     @relation(fields: [userId], references: [id])
 
+  // RELATION: This Review belongs to one StudySpot
   spotId    String
   spot      StudySpot @relation(fields: [spotId], references: [id])
 }
 
-// --- NEW MODEL FOR THE FOLLOWS TABLE ---
+// Model for the Follows relationship
 model Follows {
   followerId  String
   followingId String
+  follower    User   @relation("follower", fields: [followerId], references: [id])
+  following   User   @relation("following", fields: [followingId], references: [id])
 
-  // Define the relations back to the User model
-  follower    User @relation("Following", fields: [followerId], references: [id])
-  following   User @relation("Followers", fields: [followingId], references: [id])
-
-  // Define a composite primary key to ensure a user can't follow another user more than once
   @@id([followerId, followingId])
 }
